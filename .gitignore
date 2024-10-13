@@ -6,6 +6,11 @@ __pycache__/
 # C extensions
 *.so
 
+# dotenv and secrets
+.dotenv
+.dotenv/
+**/.dotenv
+
 # Distribution / packaging
 .Python
 build/
