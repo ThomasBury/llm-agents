@@ -1,9 +1,0 @@
-# OpenAI API Key
-OPENAI_API_KEY=your_openai_api_key_here
-
-# Notion API Key and Database ID
-NOTION_API_KEY=your_notion_api_key_here
-NOTION_DATABASE_ID=your_notion_database_id_here
-
-# Optional: OpenAI model (if you want to override the default)
-OPENAI_MODEL=gpt-4

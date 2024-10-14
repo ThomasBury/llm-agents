@@ -1,4 +1,5 @@
 import openai
+from openai import OpenAI
 import requests
 from dotenv import load_dotenv
 from datetime import datetime
@@ -9,9 +10,10 @@ import os
 load_dotenv()
 
 # OpenAI and Notion API setup
-openai.api_key = os.getenv('OPENAI_API_KEY')
+client = OpenAI(api_key=os.getenv('OPENAI_API_KEY'))
 notion_api_key = os.getenv('NOTION_API_KEY')
-notion_database_id = os.getenv('NOTION_DATABASE_ID')
+notion_page_id = os.getenv('NOTION_PAGE_ID')
+openai_model = os.getenv('OPENAI_MODEL')
 
 headers = {
     "Authorization": f"Bearer {notion_api_key}",
@@ -19,114 +21,75 @@ headers = {
     "Notion-Version": "2022-06-28"
 }
 
-def create_notion_task(task_name: str, due_on: str = "today") -> str:
+def insert_haiku(haiku: str) -> str:
     """
-    Creates a task in Notion with a given name and due date.
-    
+    Inserts a haiku as a new page in Notion under a specified parent page.
+
     Parameters
     ----------
-    task_name : str
-        The name of the task to be created in Notion.
-    due_on : str, optional
-        The due date for the task in YYYY-MM-DD format. If not specified,
-        the current date is used by default (default is "today").
-        
+    haiku : str
+        The haiku content to be inserted into Notion.
+
     Returns
     -------
     str
         The result of the API call. If successful, a confirmation message
         is returned; otherwise, an error message is returned.
-        
-    Example
-    -------
-    >>> create_notion_task("Finish project", "2024-10-15")
-    'Task successfully created in Notion!'
     """
-    if due_on == "today":
-        due_on = str(datetime.now().date())
     
-    task_body = {
-        "parent": {"database_id": notion_database_id},
+    haiku_body = {
+        "parent": {"page_id": notion_page_id},
         "properties": {
-            "Name": {"title": [{"text": {"content": task_name}}]},
-            "Due": {"date": {"start": due_on}}
+            "title": {  # Correct title property for Notion API
+                "title": [
+                    {
+                        "type": "text",
+                        "text": {
+                            "content": haiku
+                        }
+                    }
+                ]
+            }
         }
     }
 
-    response = requests.post('https://api.notion.com/v1/pages', 
-                             headers=headers, json=task_body)
+    response = requests.post('https://api.notion.com/v1/pages', headers=headers, json=haiku_body)
 
     if response.status_code == 200:
-        return "Task successfully created in Notion!"
-    return f"Failed to create task: {response.text}"
+        return "Haiku successfully inserted in Notion!"
+    else:
+        return f"Failed to insert haiku: {response.status_code}, {response.text}"
 
-def get_notion_tasks() -> list:
-    """
-    Retrieves a list of tasks from the connected Notion database.
-    
-    Returns
-    -------
-    list
-        A list of task names and their due dates. If there are no tasks or 
-        an error occurs, an appropriate message is returned.
-        
-    Example
-    -------
-    >>> get_notion_tasks()
-    ['Task 1 - Due: 2024-10-15', 'Task 2 - Due: 2024-10-20']
-    """
-    url = f"https://api.notion.com/v1/databases/{notion_database_id}/query"
-    response = requests.post(url, headers=headers)
-
-    if response.status_code == 200:
-        tasks = response.json()
-        task_list = []
-        for result in tasks["results"]:
-            task_name = result["properties"]["Name"]["title"][0]["text"]["content"]
-            due_date = result["properties"].get("Due", {}).get("date", {}).get("start", "No due date")
-            task_list.append(f"{task_name} - Due: {due_date}")
-        return task_list
-    return f"Failed to retrieve tasks: {response.text}"
 
 def get_tools() -> list:
     """
     Provides a list of tools (functions) that the LLM can invoke.
-    
+
     Returns
     -------
     list
         A list of tools with their name, description, and parameters that
         can be used by the OpenAI agent.
     """
+    
     tools = [
         {
             "type": "function",
             "function": {
-                "name": "create_notion_task",
-                "description": "Creates a task in Notion given the name of the task and due date",
+                "name": "insert_haiku",
+                "description": "Insert a haiku",
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "task_name": {
+                        "haiku": {
                             "type": "string",
-                            "description": "The name of the task in Notion"
-                        },
-                        "due_on": {
-                            "type": "string",
-                            "description": "The date the task is due in the format YYYY-MM-DD"
+                            "description": "The haiku to be inserted"
                         },
                     },
-                    "required": ["task_name"]
+                    "required": ["haiku"]
                 },
             },
         },
-        {
-            "type": "function",
-            "function": {
-                "name": "get_notion_tasks",
-                "description": "Retrieves a list of tasks from Notion",
-            },
-        }
     ]
     return tools
 
@@ -134,67 +97,76 @@ def prompt_ai(messages: list) -> str:
     """
     Handles user messages and determines if a tool needs to be called by
     the OpenAI model.
-    
+
     Parameters
     ----------
     messages : list
         A list of conversation messages between the user and the assistant.
-        
+
     Returns
     -------
     str
         The assistant's response after processing the message or invoking
         a function.
     """
-    completion = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=messages,
-        functions=get_tools()
+    # First, prompt the AI with the latest user message
+    completion = client.chat.completions.create(
+        model=openai_model,  # Make sure to specify the correct model
+        messages=messages,  # No need for a separate 'prompt' parameter
+        tools=get_tools()
     )
 
-    response_message = completion['choices'][0]['message']
-    tool_calls = response_message.get('function_call')
+    response_message = completion.choices[0].message
+    tool_calls = response_message.tool_calls
 
+    # Second, see if the AI decided it needs to invoke a tool
     if tool_calls:
+        # If the AI decided to invoke a tool, invoke it
         available_functions = {
-            "create_notion_task": create_notion_task,
-            "get_notion_tasks": get_notion_tasks
+            "insert_haiku": insert_haiku,
         }
 
-        # Execute the tool function
-        function_name = tool_calls['name']
-        function_args = json.loads(tool_calls['arguments'])
-        function_response = available_functions[function_name](**function_args)
+        # Add the tool request to the list of messages so the AI knows later it invoked the tool
+        messages.append(response_message)
 
-        # Add tool call result to conversation
-        messages.append({"role": "assistant", "content": function_response})
-        return function_response
+        # Next, for each tool the AI wanted to call, call it and add the tool result to the list of messages
+        for tool_call in tool_calls:
+            function_name = tool_call.function.name
+            function_to_call = available_functions[function_name]
+            function_args = json.loads(tool_call.function.arguments)
+            function_response = function_to_call(**function_args)
 
-    return response_message['content']
+            messages.append({
+                "tool_call_id": tool_call.id,
+                "role": "tool",
+                "name": function_name,
+                "content": function_response
+            })
 
+        # Call the AI again so it can produce a response with the result of calling the tool(s)
+        second_response = client.chat.completions.create(
+            model=openai_model,
+            messages=messages,
+        )
+
+        return second_response.choices[0].message.content
+
+    return response_message.content
+
+
+# Example main function
 def main():
-    """
-    Main entry point for interacting with the task management assistant.
-    
-    Continuously accepts user input to create or retrieve tasks until the
-    user decides to quit.
-    """
     messages = [
-        {
-            "role": "system",
-            "content": f"You are a task management assistant connected to Notion. The current date is: {datetime.now().date()}"
-        }
+        {"role": "system", "content": f"You are an assistant that creates haikus. The current date is: {datetime.now().date()}"}
     ]
 
     while True:
         user_input = input("Chat with AI (q to quit): ").strip()
-
         if user_input.lower() == 'q':
             break
 
         messages.append({"role": "user", "content": user_input})
         ai_response = prompt_ai(messages)
-
         print(ai_response)
         messages.append({"role": "assistant", "content": ai_response})
 
