@@ -1,10 +1,10 @@
-import openai
-from openai import OpenAI
-import requests
-from dotenv import load_dotenv
-from datetime import datetime
 import json
 import os
+import requests
+
+from datetime import datetime
+from dotenv import load_dotenv
+from openai import OpenAI
 
 # Load environment variables
 load_dotenv()
