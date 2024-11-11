@@ -1,13 +1,12 @@
 [project]
-name = "01-basic-agent"
+name = "01-validated-basic-agent"
 version = "0.1.0"
-description = "Add your description here"
+description = "Illustration of a validated AI Agent interaction with a third party API"
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [
     "instructor>=1.6.3",
     "litellm>=1.52.3",
-    "llm>=0.17.1",
     "openai>=1.51.2",
     "pydantic>=2.9.2",
     "python-dotenv>=1.0.1",
