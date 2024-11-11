@@ -1,21 +1,23 @@
-# Notion Haiku Agent
+# Notion Agent
 
-This simple agent inserts a haiku into a Notion page using the Notion API and OpenAI's GPT models. Follow the steps below to set it up.
+This AI-powered agent generates haikus and inserts them into a Notion page. You can extend it to any interaction implemented in the Notion API.
+The upgraded version uses `LiteLLM` for flexible language model handling, `Instructor` and `Pydantic` for input validation, and `UV` to manage dependencies and execution environments (optinal but extremely convenient).
 
 ## Setup Instructions
+- **Security**: Keep your API tokens secret. **Do not push them to your repository**.
 
 ### 1. Create a New Page on Notion
 - Start by creating a new page in your Notion workspace. This is where your haikus will be inserted.
 
 ### 2. Create a Notion Integration
 - Go to the [Notion Developer Dashboard](https://www.notion.so/my-integrations) and create a new integration.
-- Give your integration a name, and select the workspace where your new Notion page is located.
+- Name your integration and select the workspace where your Notion page is located.
 - After creating the integration, **copy your API token**. You’ll need this for your `.env` file (see step 5).
-  
+
 ### 3. Set Up Permissions
-- Go to the page you created in step 1.
+- Go to the Notion page you created in step 1.
 - Click on the `...` menu in the top-right corner of the page.
-- Select **"Add Connections"**, then search for and select the integration you created in step 2. This will allow the integration to access the page.
+- Select **"Add Connections"**, then find and add the integration you created in step 2. This allows the integration to access the page.
 
 ### 4. Obtain the Page ID
 - In the URL of your Notion page, look for the part that follows this format:
@@ -35,16 +37,47 @@ This simple agent inserts a haiku into a Notion page using the Notion API and Op
   OPENAI_MODEL=gpt-3.5-turbo  # or gpt-4, depending on your preference
   ```
 
-### 6. Run the Agent
-- In your terminal, navigate to the project directory and run the following command:
-  ```bash
-  python agent.py
-  ```
-- Once the agent is running, you can ask it to generate and insert a haiku. For example:
-  ```
-  Please insert a haiku about cats.
-  ```
+### 6. Project management using UV
+For smooth and easy dependency management and reproducible environments, I recommend using `UV`. This optional step ensures all required dependencies are installed consistently across environments.
 
-### Notes
-- **Security**: Keep your API tokens secret. Do not push them to your repository.
-- The agent will use OpenAI’s models to generate a haiku and insert it into your Notion page.
+1. Intialise the project `uv init`
+2. Install the python version you want `uv python install 3.11`
+3. Add the dependencies: `uv add requests python-dotenv openai litellm instructor pydantic`
+4. Run the agent with:
+   ```bash
+   uv run agent.py
+   ```
+
+### 7. Run the Agent
+If not using `UV`, simply install the dependencies manually:
+   ```bash
+   pip install -r requirements.txt
+   ```
+Then, run the agent:
+   ```bash
+   python agent.py
+   ```
+
+### Using the Enhanced Agent
+
+Once the agent is running, you can ask it to generate and insert a haiku by entering:
+```
+Please insert a haiku about cats.
+```
+
+The upgraded agent now supports multiple actions and is validated for input correctness. For example, you could later add actions such as retrieving weather data by expanding the action models.
+
+---
+
+## REM
+
+### 1. Provider Flexibility with `LiteLLM`
+`LiteLLM` abstracts the language model provider, allowing you to switch models without changing core code. This abstraction supports flexibility and scalability as you add more functionalities or providers.
+
+### 2. Input Validation with `Instructor` and `Pydantic`
+Using `Instructor` with `Pydantic` models allows the agent to validate inputs before processing them. This validation ensures that all data sent to Notion (or other future tools) adheres to predefined schemas, improving data quality and robustness.
+
+### 3. Simplified Dependency Management with `UV`
+Using `UV` simplifies setting up dependencies and running the agent in consistent, isolated environments. This helps maintain reproducibility and minimizes dependency conflicts.
+
+
